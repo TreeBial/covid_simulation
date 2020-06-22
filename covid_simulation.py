@@ -1,5 +1,5 @@
 '''
-covid_simulator
+covid_simulation
 '''
 
 import sys
@@ -67,6 +67,8 @@ screen = pygame.display.set_mode((screenW, screenH))
 mapL, mapT, mapSize = 100, 100, 500
 hosL, hosT, hosSize = 700, 300, 50
 
+FPS = 60
+CONT_RATE = 1
 V = 0.7 # velocity of points
 
 # Initialize Health States
@@ -79,7 +81,7 @@ CUR = States('CUR', (26, 128, 128)) # Cured
 
 # Initializa Objects
 HLTs = []
-for i in range(200):
+for i in range(300):
     HLTs.append(Person([randrange(mapSize), randrange(mapSize)], random()*2*math.pi, HLT))
 INFs = [Person([randrange(mapSize), randrange(mapSize)], random()*2*math.pi, INF)]
 QURs = []
@@ -89,7 +91,7 @@ people = HLTs + INFs + DEDs + CURs
 
 clock = pygame.time.Clock()
 while True:
-    clock.tick(60)
+    clock.tick(FPS)
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             pygame.quit()
@@ -97,14 +99,16 @@ while True:
     screen.fill(BLACK)
     # Calculate 1: Infect Healthy People
     for i, infected in enumerate(INFs):
-        for j, healthy in enumerate(HLTs):
-            if infected.close(healthy, 15) and not infected.quarantined:
-                healthy.change_state(INF)
-                INFs.append(HLTs.pop(j))
+        contagious = not infected.quarantined
+        if contagious:
+            for j, healthy in enumerate(HLTs):
+                if infected.close(healthy, 15) and random() <= CONT_RATE / FPS:
+                    healthy.change_state(INF)
+                    INFs.append(HLTs.pop(j))
     # Calculate 2: Infected People probabistically Dead or Cured
     for i, infected in enumerate(INFs):
         infected.infect_time_count += 1
-        if infected.infect_time_count >= 3 * 60:
+        if infected.infect_time_count >= 3 * FPS:
             if random() <= 0.01:
                 infected.change_state(DED)
                 DEDs.append(INFs.pop(i))
@@ -112,7 +116,7 @@ while True:
                 infected.change_state(CUR)
                 CURs.append(INFs.pop(i))
     # Calculate 3: PCR scan and quarantine
-    for scanned in sample(people, 0):
+    for scanned in sample(people, 1):
         if scanned.state == INF and not scanned.quarantined:
             scanned.quarantined = True
             QURs.append(scanned)

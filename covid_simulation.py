@@ -65,24 +65,29 @@ class Person:
 # Initialize pygame
 pygame.init()
 
-# Initialize Simulation Constants
+# Initialize Simulation Constants and Variables
 FPS = 60 # Frame Per Second
+totalFrame = 0
 
 screenW, screenH = 1440, 900
 screen = pygame.display.set_mode((screenW, screenH))
 
 mapL, mapT, mapSize = 100, 100, 500
-hosL, hosT, hosSize = 700, 300, 50
+hosL, hosT, hosSize = 700, 600, 50
+
+graphL, graphT, graphW, graphH = 700, 300, 400, 200
+graphColor = (16, 16, 16)
 
 mapColor = (16, 16, 16)
 hosColor = (16, 16, 16)
 
-CONTAGIOUS_RATE = 0.7 # probability of contagion if two people pass by each other for one second
-CONTAGIOUS_RATE_PER_FRAME = pow(CONTAGIOUS_RATE, 1/FPS)
-FATALITY_RATE = 0.9 # per one second
-FATALITY_RATE_PER_FRAME = pow(FATALITY_RATE, 1/FPS)
-CURE_RATE = 0.1 # per one second
-CURE_RATE_PER_FRAME = pow(CURE_RATE, 1/FPS)
+CONTAGIOUS_RATE = 1 # probability of contagion if two people pass by each other for one "frame"
+FATALITY_RATE = 0.05 # per one second
+FATALITY_RATE_PER_FRAME = FATALITY_RATE / FPS # suppose that fatality rate is very small
+CURE_RATE = 0.05 # per one second
+CURE_RATE_PER_FRAME = CURE_RATE / FPS # suppse that cure rate is very small
+
+SCAN_PER_FRAME = 0
 
 CONTAGIOUS_RADIUS = 15
 LEAST_INFECTED_SECONDS = 3
@@ -107,9 +112,16 @@ DEDs = []
 CURs = []
 people = HLTs + INFs + DEDs + CURs
 
+# Initiate Graph Variables
+infectNum = [1]
+curedNum = [0]
+deadNum = [0]
+
+# Run Simulation
 clock = pygame.time.Clock()
 while True:
     clock.tick(FPS)
+    totalFrame += 1
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             pygame.quit()
@@ -121,7 +133,7 @@ while True:
         if contagious:
             for j, healthy in enumerate(HLTs):
                 if infected.close(healthy, CONTAGIOUS_RADIUS) and \
-                    random() <= CONTAGIOUS_RATE_PER_FRAME:
+                    random() <= CONTAGIOUS_RATE:
                     healthy.change_state(INF)
                     INFs.append(HLTs.pop(j))
     # Calculate 2: Infected People probabistically Dead or Cured
@@ -136,7 +148,7 @@ while True:
                 infected.change_state(CUR)
                 CURs.append(INFs.pop(i))
     # Calculate 3: PCR scan and quarantine
-    for scanned in sample(people, 1):
+    for scanned in sample(people, SCAN_PER_FRAME):
         if scanned.state == INF and not scanned.quarantined:
             scanned.quarantined = True
             QURs.append(scanned)
@@ -144,6 +156,10 @@ while True:
         if quar.state != INF:
             quar.quarantined = False
             QURs.remove(quar)
+    # Calculate 4: Record Cumulation
+    infectNum.append(len(INFs))
+    curedNum.append(len(CURs))
+    deadNum.append(len(DEDs))
     # Calculate ?: Move
     for person in people:
         person.move()
@@ -158,6 +174,21 @@ while True:
         else:
             repr_position = list(map(lambda x, y: round(x+y), person.pos, [mapL, mapT]))
             pygame.draw.circle(screen, person.state.color, repr_position, 5)
+    # Draw 3: Cumulative Graph
+    pygame.draw.rect(screen, graphColor, [graphL, graphT, graphW, graphH])
+    oneWidth = graphW / totalFrame
+    peopleNum = len(people)
+    for fr in range(totalFrame):
+        leftTopPos = [graphL + fr * oneWidth, graphT]
+        deadH = round(deadNum[fr] * graphH / peopleNum)
+        curedH = round(curedNum[fr] * graphH / peopleNum)
+        infectH = round(infectNum[fr] * graphH / peopleNum)
+        healthyH = graphH - deadH - curedH - infectH
+        pygame.draw.rect(screen, DED.color, leftTopPos + [oneWidth, healthyH + infectH + curedH + deadH]) # dead
+        pygame.draw.rect(screen, CUR.color, leftTopPos + [oneWidth, healthyH + infectH + curedH]) # cured
+        pygame.draw.rect(screen, INF.color, leftTopPos + [oneWidth, healthyH + infectH]) # infected
+        pygame.draw.rect(screen, HLT.color, leftTopPos + [oneWidth, healthyH]) # healthy
+    # Draw
     pygame.display.flip()
 
 # quit

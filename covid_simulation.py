@@ -89,7 +89,7 @@ FATALITY_RATE_PER_FRAME = FATALITY_RATE / FPS # suppose that fatality rate is ve
 CURE_RATE = 0.05 # per one second
 CURE_RATE_PER_FRAME = CURE_RATE / FPS # suppse that cure rate is very small
 
-SCAN_PER_FRAME = 0
+SCAN_PER_FRAME = 2
 
 CONTAGIOUS_RADIUS = 15
 LEAST_INFECTED_SECONDS = 3
@@ -109,7 +109,7 @@ CUR = States('CUR', (26, 128, 128)) # Cured
 
 # Initializa Objects
 HLTs = []
-for i in range(199):
+for i in range(499):
     HLTs.append(Person([randrange(mapSize), randrange(mapSize)], random()*2*math.pi, HLT))
 INFs = [Person([randrange(mapSize), randrange(mapSize)], random()*2*math.pi, INF)]
 QURs = []
@@ -118,8 +118,6 @@ CURs = []
 people = HLTs + INFs + DEDs + CURs
 
 # Initiate Graph Variables
-font_obj = pygame.font.Font('freesansbold.ttf', 32)
-
 rgb_array = numpy.array([[HLT.color]*len(HLTs) + [INF.color]*len(INFs)])
 
 # Run Simulation
@@ -181,6 +179,25 @@ while True:
     rgb_surface = pygame.surfarray.make_surface(rgb_array)
     rgb_surface_scaled = pygame.transform.scale(rgb_surface, (graphW, graphH))
     screen.blit(rgb_surface_scaled, [graphL, graphT])
+    # Draw 4: Show Current Situation (number of infected, healthy, etc)
+    font_text = pygame.font.SysFont('arial', 32)
+    font_number = pygame.font.SysFont('arial', 32)
+    healthy_text = font_text.render('healthy', False, HLT.color)
+    healthy_number = font_number.render(f'{len(HLTs)}', False, HLT.color)
+    screen.blit(healthy_text, (900, 500))
+    screen.blit(healthy_number, (900, 600))
+    infect_text = font_text.render('infected', False, INF.color)
+    infect_number = font_number.render(f'{len(INFs)}', False, INF.color)
+    screen.blit(infect_text, (1000, 500))
+    screen.blit(infect_number, (1000, 600))
+    cured_text = font_text.render('cured', False, CUR.color)
+    cured_number = font_number.render(f'{len(CURs)}', False, CUR.color)
+    screen.blit(cured_text, (1100, 500))
+    screen.blit(cured_number, (1100, 600))
+    dead_text = font_text.render('dead', False, DED.color)
+    dead_number = font_number.render(f'{len(DEDs)}', False, DED.color)
+    screen.blit(dead_text, (1200, 500))
+    screen.blit(dead_number, (1200, 600))
     # Draw
     pygame.display.flip()
 

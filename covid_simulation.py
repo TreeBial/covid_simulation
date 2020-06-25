@@ -5,7 +5,9 @@ covid_simulation
 import sys
 import math
 from random import random, randrange, sample
+
 import pygame
+import numpy
 
 
 # Define required classes
@@ -97,6 +99,9 @@ V = 0.7 # velocity of points
 # Initialize Health States
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
+RED = (255, 0, 0)
+GREEN = (0, 255, 0)
+BLUE = (0, 0, 255)
 HLT = States('HLT', (51, 255, 255)) # Healthy
 INF = States('INF', (255, 127, 0)) # Infected
 DED = States('DED', (128, 128, 128)) # Dead
@@ -104,7 +109,7 @@ CUR = States('CUR', (26, 128, 128)) # Cured
 
 # Initializa Objects
 HLTs = []
-for i in range(300):
+for i in range(199):
     HLTs.append(Person([randrange(mapSize), randrange(mapSize)], random()*2*math.pi, HLT))
 INFs = [Person([randrange(mapSize), randrange(mapSize)], random()*2*math.pi, INF)]
 QURs = []
@@ -113,9 +118,9 @@ CURs = []
 people = HLTs + INFs + DEDs + CURs
 
 # Initiate Graph Variables
-infectNum = [1]
-curedNum = [0]
-deadNum = [0]
+font_obj = pygame.font.Font('freesansbold.ttf', 32)
+
+rgb_array = numpy.array([[HLT.color]*len(HLTs) + [INF.color]*len(INFs)])
 
 # Run Simulation
 clock = pygame.time.Clock()
@@ -156,10 +161,6 @@ while True:
         if quar.state != INF:
             quar.quarantined = False
             QURs.remove(quar)
-    # Calculate 4: Record Cumulation
-    infectNum.append(len(INFs))
-    curedNum.append(len(CURs))
-    deadNum.append(len(DEDs))
     # Calculate ?: Move
     for person in people:
         person.move()
@@ -175,19 +176,11 @@ while True:
             repr_position = list(map(lambda x, y: round(x+y), person.pos, [mapL, mapT]))
             pygame.draw.circle(screen, person.state.color, repr_position, 5)
     # Draw 3: Cumulative Graph
-    pygame.draw.rect(screen, graphColor, [graphL, graphT, graphW, graphH])
-    oneWidth = graphW / totalFrame
-    peopleNum = len(people)
-    for fr in range(totalFrame):
-        leftTopPos = [graphL + fr * oneWidth, graphT]
-        deadH = round(deadNum[fr] * graphH / peopleNum)
-        curedH = round(curedNum[fr] * graphH / peopleNum)
-        infectH = round(infectNum[fr] * graphH / peopleNum)
-        healthyH = graphH - deadH - curedH - infectH
-        pygame.draw.rect(screen, DED.color, leftTopPos + [oneWidth, healthyH + infectH + curedH + deadH]) # dead
-        pygame.draw.rect(screen, CUR.color, leftTopPos + [oneWidth, healthyH + infectH + curedH]) # cured
-        pygame.draw.rect(screen, INF.color, leftTopPos + [oneWidth, healthyH + infectH]) # infected
-        pygame.draw.rect(screen, HLT.color, leftTopPos + [oneWidth, healthyH]) # healthy
+    rgb_new_line = numpy.array([[HLT.color]*len(HLTs) + [INF.color]*len(INFs) + [CUR.color]*len(CURs) + [DED.color]*len(DEDs)])
+    rgb_array = numpy.concatenate((rgb_array, rgb_new_line), axis=0)
+    rgb_surface = pygame.surfarray.make_surface(rgb_array)
+    rgb_surface_scaled = pygame.transform.scale(rgb_surface, (graphW, graphH))
+    screen.blit(rgb_surface_scaled, [graphL, graphT])
     # Draw
     pygame.display.flip()
 

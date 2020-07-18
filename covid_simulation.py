@@ -9,6 +9,7 @@ from random import random, randrange, sample
 import pygame
 import numpy
 
+from community import Community
 
 # Define required classes
 class States:
@@ -69,7 +70,7 @@ pygame.init()
 
 # Initialize Simulation Constants and Variables
 FPS = 60 # Frame Per Second
-totalFrame = 0
+total_frame = 0
 
 screenW, screenH = 1440, 900
 screen = pygame.display.set_mode((screenW, screenH))
@@ -83,13 +84,15 @@ graphColor = (16, 16, 16)
 mapColor = (16, 16, 16)
 hosColor = (16, 16, 16)
 
+POPULATION = 500
+
 CONTAGIOUS_RATE = 1 # probability of contagion if two people pass by each other for one "frame"
 FATALITY_RATE = 0.05 # per one second
 FATALITY_RATE_PER_FRAME = FATALITY_RATE / FPS # suppose that fatality rate is very small
 CURE_RATE = 0.05 # per one second
 CURE_RATE_PER_FRAME = CURE_RATE / FPS # suppse that cure rate is very small
 
-SCAN_PER_FRAME = 2
+SCAN_PER_FRAME = 5
 
 CONTAGIOUS_RADIUS = 15
 LEAST_INFECTED_SECONDS = 3
@@ -108,8 +111,12 @@ DED = States('DED', (128, 128, 128)) # Dead
 CUR = States('CUR', (26, 128, 128)) # Cured
 
 # Initializa Objects
+grid_num = math.floor(mapSize / CONTAGIOUS_RADIUS)
+grid_size = mapSize / grid_num
+com = Community(mapSize, mapSize, grid_num)
+
 HLTs = []
-for i in range(499):
+for i in range(POPULATION - 1):
     HLTs.append(Person([randrange(mapSize), randrange(mapSize)], random()*2*math.pi, HLT))
 INFs = [Person([randrange(mapSize), randrange(mapSize)], random()*2*math.pi, INF)]
 QURs = []
@@ -124,21 +131,42 @@ rgb_array = numpy.array([[HLT.color]*len(HLTs) + [INF.color]*len(INFs)])
 clock = pygame.time.Clock()
 while True:
     clock.tick(FPS)
-    totalFrame += 1
+    total_frame += 1
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             pygame.quit()
             sys.exit(0)
     screen.fill(BLACK)
     # Calculate 1: Infect Healthy People
-    for i, infected in enumerate(INFs):
-        contagious = not infected.quarantined
-        if contagious:
-            for j, healthy in enumerate(HLTs):
-                if infected.close(healthy, CONTAGIOUS_RADIUS) and \
-                    random() <= CONTAGIOUS_RATE:
-                    healthy.change_state(INF)
-                    INFs.append(HLTs.pop(j))
+    ## rearrange grid
+    for _person in people:
+        if _person.state == HLT:
+            grid_index = int(_person.pos[0] // grid_size) + grid_num * int(_person.pos[1] // grid_size)
+            com.grid[grid_index]['healthy'].append(_person)
+        elif _person.state == INF:
+            grid_index = int(_person.pos[0] // grid_size) + grid_num * int(_person.pos[1] // grid_size)
+            com.grid[grid_index]['infected'].append(_person)
+    for now_index in range(grid_num**2):
+        if com.grid[now_index]['infected']:
+            for adj_index in com.adjacent_grids[now_index]:
+                for infected in com.grid[now_index]['infected']:
+                    for healthy in com.grid[adj_index]['healthy']:
+                        if infected.close(healthy, CONTAGIOUS_RADIUS) and \
+                            random() <= CONTAGIOUS_RATE:
+                            healthy.change_state(INF)
+                            INFs.append(healthy)
+                            HLTs.remove(healthy)
+                            com.grid[adj_index]['infected'].append(healthy)
+                            com.grid[adj_index]['healthy'].remove(healthy)
+    com.clear_grid()
+    # for i, infected in enumerate(INFs):
+    #     contagious = not infected.quarantined
+    #     if contagious:
+    #         for j, healthy in enumerate(HLTs):
+    #             if infected.close(healthy, CONTAGIOUS_RADIUS) and \
+    #                 random() <= CONTAGIOUS_RATE:
+    #                 healthy.change_state(INF)
+    #                 INFs.append(HLTs.pop(j))
     # Calculate 2: Infected People probabistically Dead or Cured
     for i, infected in enumerate(INFs):
         infected.infect_time_count += 1
